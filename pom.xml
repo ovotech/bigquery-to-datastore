@@ -27,6 +27,7 @@
   <packaging>jar</packaging>
 
   <properties>
+    <beam.redis.version>2.5.0</beam.redis.version>
     <beam.version>2.1.0</beam.version>
 
     <bigquery.version>v2-rev295-1.22.0</bigquery.version>
@@ -231,6 +232,13 @@
       <version>${beam.version}</version>
     </dependency>
 
+    <!-- Adds a dependency on the Beam Redis IO module. -->
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-io-redis</artifactId>
+      <version>${beam.redis.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.apache.beam</groupId>
       <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
@@ -343,5 +351,10 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>2.19.0</version>
+    </dependency>
   </dependencies>
 </project>
