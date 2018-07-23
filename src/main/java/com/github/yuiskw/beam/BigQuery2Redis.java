@@ -114,44 +114,4 @@ public class BigQuery2Redis {
     return options;
   }
 
-  /**
-   * Get a parent path map
-   *
-   * e.g.) "Parent1:p1,Parent2:p2"
-   */
-  public static LinkedHashMap<String, String> parseParentPaths(String parentPaths) {
-    LinkedHashMap<String, String> pathMap = new LinkedHashMap<String, String>();
-    if (parentPaths != null) {
-      // TODO validation
-      for (String path : parentPaths.split(",")) {
-        // trim
-        String trimmed = path.replaceAll("(^\\s+|\\s+$)", "");
-
-        // split with ":" and trim each element
-        String[] elements = trimmed.split(":");
-        String k = elements[0].replaceAll("(^\\s+|\\s+$)", "");
-        String v = elements[1].replaceAll("(^\\s+|\\s+$)", "");
-        pathMap.put(k, v);
-      }
-    }
-    return pathMap;
-  }
-
-  /**
-   * Get indexed column names
-   *
-   * @param indexedColumns a string separated by "," (i.e. "column1,column2,column3").
-   * @return array of indexed column name.
-   */
-  public static List<String> parseIndexedColumns(String indexedColumns) {
-    ArrayList<String> columns = new ArrayList<String>();
-    if (indexedColumns != null) {
-      for (String path : indexedColumns.split(",")) {
-        // trim
-        String column = path.replaceAll("(^\\s+|\\s+$)", "");
-        columns.add(column);
-      }
-    }
-    return columns;
-  }
 }

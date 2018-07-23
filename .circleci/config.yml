@@ -1,0 +1,180 @@
+version: 2
+
+# ---------------------------------------------------------------------------
+# ANCHORS (bits of YAML that can be reused)
+# ---------------------------------------------------------------------------
+
+dependency_cache_key: &dependency_cache_key v5-repo-deps-{{ .Environment.CIRCLE_PROJECT_REPONAME }}-{{ checksum "project/Dependencies.scala"}}
+
+restore_dependency_cache: &restore_dependency_cache
+  restore_cache:
+    name: Restoring dependency cache
+    keys:
+    - *dependency_cache_key
+    # fallback to using the latest cache if no exact match is found
+    - v5-repo-deps-
+
+docker_image: &docker_image
+  docker:
+    - image: circleci/openjdk:8-jdk-node-browsers
+
+persist_workspace: &persist_workspace
+  persist_to_workspace:
+    root: .
+    paths:
+      - ./*
+
+load_workspace: &load_workspace
+  attach_workspace:
+    at: .
+
+docker_login: &docker_login
+  run:
+    name: Login to docker using GCP creds
+    command: echo $NONPROD_GCLOUD_ACCOUNT_AUTH | base64 --decode | docker login -u _json_key --password-stdin https://gcr.io
+
+upload_test_results: &upload_test_results
+  store_test_results:
+    path: target/junit
+
+setup_helm: &setup_helm
+  run:
+    name: Run NONPROD Release
+    command: |
+      ##############################################
+      # Setup Dependencies                         #
+      ##############################################
+      sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update --version="197.0.0"
+      sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update kubectl --version="197.0.0"
+      curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash -s -- -v $NONPROD_HELM_VERSION
+
+      ##############################################
+      # NONPROD Deployment                         #
+      ##############################################
+      # Account setup
+      echo $NONPROD_GCLOUD_ACCOUNT_AUTH | base64 --decode -i > ~/account-auth.json
+      sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file ~/account-auth.json
+      sudo /opt/google-cloud-sdk/bin/gcloud config set project $NONPROD_PROJECT_ID
+      sudo /opt/google-cloud-sdk/bin/gcloud --quiet config set container/cluster $NONPROD_CLUSTER_NAME
+      sudo /opt/google-cloud-sdk/bin/gcloud config set compute/zone $NONPROD_CLOUDSDK_COMPUTE_ZONE
+      sudo /opt/google-cloud-sdk/bin/gcloud --quiet container clusters get-credentials $NONPROD_CLUSTER_NAME
+      sudo chown -R $USER /home/circleci/.kube
+
+deploy_to_uat: &deploy_to_uat
+  run:
+    name: Deploy the UAT with helm
+    command: helm upgrade --install  --wait boost-customer-api -f .helm/environments/uat.yaml --set image.tag=`cat image_version.txt` --set gcp.credentials=$GCLOUD_BOOST_CUSTOMER_API_DS_AUTH --set kafka.keyStore=$AIVEN_UAT_KEY_STORE --set kafka.keyStorePassphrase=$AIVEN_UAT_KEY_STORE_PASSPHRASE --set kafka.trustStore=$AIVEN_UAT_TRUST_STORE --set kafka.trustStorePassphrase=$AIVEN_UAT_TRUST_STORE_PASSPHRASE --set kafka.registryUsername=$AIVEN_KAFKA_REGISTRY_USERNAME --set kafka.registryPassword=$AIVEN_KAFKA_REGISTRY_PASSWORD --set redis.password=$AIVEN_UAT_REDIS_PASSWORD .helm/boost-customer-api
+
+remove_kube_creds: &remove_kube_creds
+  run:
+    name: Remove kubernetes credentials
+    command: sudo rm -rf /home/circleci/.kube
+
+# ---------------------------------------------------------------------------
+# JOB DEFINITIONS
+# ---------------------------------------------------------------------------
+
+jobs:
+
+  setup:
+    <<: *docker_image
+    steps:
+      - *load_workspace
+      - checkout
+      - *restore_dependency_cache
+      - *persist_workspace
+
+  compile:
+    <<: *docker_image
+    steps:
+      - *load_workspace
+      - *restore_dependency_cache
+      - run:
+          name: Compile project
+          command: sbt ";compile; test:compile; it:compile; e2e:compile"
+      - save_cache:
+          name: Saving dependency cache
+          key: *dependency_cache_key
+          paths:
+            - ~/.m2
+            - ~/.ivy2
+            - ~/.sbt
+            - ~/.ssh/known_hosts
+      - *persist_workspace
+
+  test:
+    machine: true
+    steps:
+      - *load_workspace
+      - *restore_dependency_cache
+      - run:
+          name: Run tests
+          command: sbt test
+      - run:
+          name: Run integration tests
+          command: sbt it
+      - run:
+          name: Run end to end tests
+          command: sbt e2e
+      - *upload_test_results
+
+  release:
+    machine: true
+    steps:
+          - *load_workspace
+          - *restore_dependency_cache
+          - *docker_login
+          - run:
+              name: Add git username
+              command: git config --global user.name "boost-customer-api-ci"
+          - run:
+              name: Add git email
+              command: git config --global user.email "boost-new-platform-tech@ovoenergy.com"
+          - run:
+              name: Set-up remote tracking branch
+              command: git branch -u origin/`git rev-parse --abbrev-ref HEAD`
+          - run:
+              name: Run release process
+              command: sbt "release with-defaults"
+          - run:
+              name: Persist deployed version no.
+              command: git tag -l --points-at HEAD~1 > image_version.txt
+          - *persist_workspace
+  deploy-to-uat:
+    machine: true
+    environment:
+      NONPROD_PROJECT_ID: boost-nonprod-198211
+      NONPROD_CLUSTER_NAME: acquisitions
+      NONPROD_CLOUDSDK_COMPUTE_ZONE: europe-west1
+      NONPROD_HELM_VERSION: v2.8.2
+    steps:
+      - *load_workspace
+      - *setup_helm
+      - *deploy_to_uat
+      - *remove_kube_creds
+
+
+# ---------------------------------------------------------------------------
+# WORKFLOWS
+# ---------------------------------------------------------------------------
+
+workflows:
+  version: 2
+  build-and-test:
+    jobs:
+      - setup
+      - compile:
+          requires:
+            - setup
+      - test:
+          requires:
+            - compile
+      - release:
+          filters:
+            branches:
+              only: master
+          requires:
+            - test
+      - deploy-to-uat:
+          requires:
+            - release

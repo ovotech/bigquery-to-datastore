@@ -83,7 +83,7 @@ public class MultiRedisWrite extends RedisIO.Write {
         @ProcessElement
         public void processElement(DoFn<KV<String, String>, Void>.ProcessContext processContext) {
             KV<String, String> record = (KV)processContext.element();
-            this.pipeline.append((String)record.getKey(), (String)record.getValue());
+            this.pipeline.set(record.getKey(), record.getValue());
             ++this.batchCount;
             if (this.batchCount >= 1000) {
                 this.pipeline.exec();
