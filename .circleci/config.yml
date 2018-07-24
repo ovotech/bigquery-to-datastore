@@ -31,6 +31,7 @@ run_export_uat: &run_export_uat
   run:
     name: Run export for NON-PROD
     command: |
+      sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update --version="197.0.0"
       echo $NONPROD_GCLOUD_ACCOUNT_AUTH | base64 --decode -i > ~/account-auth.json
       sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file ~/account-auth.json
       mvn clean package
@@ -57,9 +58,7 @@ jobs:
     machine: true
     environment:
       NONPROD_PROJECT_ID: boost-nonprod-198211
-      NONPROD_CLUSTER_NAME: acquisitions
       NONPROD_CLOUDSDK_COMPUTE_ZONE: europe-west1
-      NONPROD_HELM_VERSION: v2.8.2
     steps:
       - *load_workspace
       - *run_export_uat
