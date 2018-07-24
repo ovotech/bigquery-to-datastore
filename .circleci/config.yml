@@ -31,7 +31,7 @@ run_export_uat: &run_export_uat
   run:
     name: Run export for NON-PROD
     command: |
-      HOME_DIR==`cd ~; pwd`
+      HOME_DIR=`cd ~; pwd`
       sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update --version="197.0.0"
       echo $NONPROD_GCLOUD_ACCOUNT_AUTH | base64 --decode -i > $HOME_DIR/account-auth.json
       sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file $HOME_DIR/account-auth.json
