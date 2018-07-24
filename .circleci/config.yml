@@ -31,13 +31,14 @@ run_export_uat: &run_export_uat
   run:
     name: Run export for NON-PROD
     command: |
+      HOME_DIR==`cd ~; pwd`
       sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update --version="197.0.0"
-      echo $NONPROD_GCLOUD_ACCOUNT_AUTH | base64 --decode -i > ~/account-auth.json
-      sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file ~/account-auth.json
-      export GOOGLE_APPLICATION_CREDENTIALS="~/account-auth.json"
+      echo $NONPROD_GCLOUD_ACCOUNT_AUTH | base64 --decode -i > $HOME_DIR/account-auth.json
+      sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file $HOME_DIR/account-auth.json
       mvn clean package
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME_DIR/account-auth.json"
       echo "Running the export..."
-      java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar   com.github.yuiskw.beam.BigQuery2Redis --project=$NONPROD_PROJECT_ID --inputBigQueryDataset=customer_api --inputBigQueryTable=account_id_mappings --outputRedisHost=boost-customer-layer-redis.ovo-uat.aivencloud.com --outputRedisPort=15662 --outputRedisAuth=$REDIS_PASSWORD_UAT --useSslForRedis=true --keyColumn=Account_No --singleOutputValue=true --tempLocation=gs://boost-nonprod-eu/test-log/ --gcpTempLocation=gs://boost-nonprod-eu/test-log/
+      java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar   com.github.yuiskw.beam.BigQuery2Redis --project=$NONPROD_PROJECT_ID --inputBigQueryDataset=customer_api --inputBigQueryTable=account_id_mappings --outputRedisHost=boost-customer-layer-redis.ovo-uat.aivencloud.com --outputRedisPort=15662 --outputRedisAuth=$(echo $REDIS_PASSWORD_UAT | base64 --decode -i) --useSslForRedis=true --keyColumn=Account_No --singleOutputValue=true --tempLocation=gs://boost-nonprod-eu/test-log/ --gcpTempLocation=gs://boost-nonprod-eu/test-log/
 
 # ---------------------------------------------------------------------------
 # JOB DEFINITIONS
