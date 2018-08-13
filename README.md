@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/yu-iskw/bigquery-to-datastore.svg?branch=master)](https://travis-ci.org/yu-iskw/bigquery-to-datastore)
 [![codecov](https://codecov.io/gh/yu-iskw/bigquery-to-datastore/branch/master/graph/badge.svg)](https://codecov.io/gh/yu-iskw/bigquery-to-datastore)
 
-This allows us to export a BigQuery table to a Google Datastore kind using Apache Beam on top of Google Dataflow.
+This allows us to export a BigQuery table to a Google Datastore or Redis kind using Apache Beam on top of Google Dataflow.
 
 You don't have to have duplicated rows whose key values are same.
 Apache Beam's `DatastoreIO` doesn't allow us to write same key at once.
@@ -15,8 +15,9 @@ Apache Beam's `DatastoreIO` doesn't allow us to write same key at once.
 - Maven
 - Java 1.8+
 - Google Cloud Platform account
+- An available Redis instance, if using the Redis adapter
 
-## Usage
+## Usage with Datastore
 
 ### Required arguments
 - `--project`: Google Cloud Project
@@ -40,7 +41,7 @@ Apache Beam's `DatastoreIO` doesn't allow us to write same key at once.
 - `--workerMachineType`: Google Dataflow worker instance type
   - e.g. `n1-standard-1`, `n1-standard-4`
 
-### Example to run on Google Dataflow
+### Example to run on Google Dataflow, outputting to Datastore
 ```
 # compile
 mvn clean package
@@ -57,6 +58,51 @@ java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar \
   --parentPaths=Parent1:p1,Parent2:p2 \
   --keyColumn=id \
   --indexedColumns=col1,col2,col3 \
+  --tempLocation=gs://test_bucket/test-log/ \
+  --gcpTempLocation=gs://test_bucket/test-log/
+```
+
+## Usage with Redis
+
+### Required arguments
+- `--project`: Google Cloud Project
+- `--inputBigQueryDataset`: Input BigQuery dataset ID
+- `--inputBigQueryTable`: Input BigQuery table ID
+- `--keyColumn`: BigQuery column name to use as the key in Redis
+- `--outputRedisHost`: Host for your Redis instance where the result is to be exported to
+- `--outputRedisPort`: Port for your Redis instance
+- `--tempLocation`: The Cloud Storage path to use for temporary files. Must be a valid Cloud Storage URL, beginning with `gs://`.
+- `--gcpTempLocation`: A GCS path for storing temporary files in GCP.
+
+### Optional arguments
+- `--runner`: Apache Beam runner.
+  - When you don't set this option, it will run on your local machine, not Google Dataflow.
+  - e.g. `DataflowRunner`
+- `--outputRedisAuth`: Password for your Redis instance, if it has one
+- `--useSslForRedis`: Boolean flag for whether your Redis instance requires SSL.
+- `--singleOutputValue`: Whether BigQuery input has only a single value column to be used for Redis value
+  - If this is false, then the non-key columns from the BigQuery input will be serialised to JSON.
+  - If this is true and there is only one non-key column in the BigQuery input, then the value in Redis will just be the stringified value of this column.
+- `--numWorkers`: The number of workers when you run it on top of Google Dataflow.
+- `--workerMachineType`: Google Dataflow worker instance type
+  - e.g. `n1-standard-1`, `n1-standard-4`
+
+### Example to run locally, outputting to Redis
+```
+# compile
+mvn clean package
+
+java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar \
+  com.github.yuiskw.beam.BigQuery2Redis \
+  --project=your-gcp-project \
+  --inputBigQueryDataset=test_dataset \
+  --inputBigQueryTable=test_table \
+  --outputRedisHost=your-redis.host.example.com \
+  --outputRedisPort=12345 \
+  --outputRedisAuth=your-redis-password \
+  --useSslForRedis=true \
+  --keyColumn=col1 \
+  --singleOutputValue=true \
   --tempLocation=gs://test_bucket/test-log/ \
   --gcpTempLocation=gs://test_bucket/test-log/
 ```
