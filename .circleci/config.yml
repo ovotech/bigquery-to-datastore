@@ -38,7 +38,7 @@ run_export_uat: &run_export_uat
       mvn clean package
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME_DIR/account-auth.json"
       echo "Running the export..."
-      java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar   com.github.yuiskw.beam.BigQuery2Redis --project=$NONPROD_PROJECT_ID --inputBigQueryDataset=customer_api --inputBigQueryTable=account_id_mappings --outputRedisHost=boost-customer-layer-redis.ovo-uat.aivencloud.com --outputRedisPort=15662 --outputRedisAuth=$(echo $REDIS_PASSWORD_UAT | base64 --decode -i) --useSslForRedis=true --keyColumn=Account_No --singleOutputValue=true --tempLocation=gs://boost-nonprod-eu/test-log/ --gcpTempLocation=gs://boost-nonprod-eu/test-log/
+      java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar   com.github.yuiskw.beam.BigQuery2Redis --project=$NONPROD_PROJECT_ID --inputBigQueryDataset=$BIGQUERY_DATASET --inputBigQueryTable=$BIGQUERY_TABLE --outputRedisHost=$REDIS_HOST_UAT --outputRedisPort=$REDIS_PORT_UAT --outputRedisAuth=$(echo $REDIS_PASSWORD_UAT | base64 --decode -i) --useSslForRedis=true --keyColumn=$BIGQUERY_KEY_COLUMN --singleOutputValue=true --tempLocation=$NONPROD_LOG_LOCATION --gcpTempLocation=$NONPROD_LOG_LOCATION
 
 # ---------------------------------------------------------------------------
 # JOB DEFINITIONS
@@ -57,7 +57,6 @@ jobs:
   run-export-uat:
     machine: true
     environment:
-      NONPROD_PROJECT_ID: boost-nonprod-198211
       NONPROD_CLOUDSDK_COMPUTE_ZONE: europe-west1
     steps:
       - *load_workspace
