@@ -26,7 +26,6 @@ load_workspace: &load_workspace
   attach_workspace:
     at: .
 
-
 run_export_uat: &run_export_uat
   run:
     name: Run export for NON-PROD
@@ -39,6 +38,20 @@ run_export_uat: &run_export_uat
       export GOOGLE_APPLICATION_CREDENTIALS="$HOME_DIR/account-auth.json"
       echo "Running the export..."
       java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar   com.github.yuiskw.beam.BigQuery2Redis --project=$NONPROD_PROJECT_ID --inputBigQueryDataset=$BIGQUERY_DATASET --inputBigQueryTable=$BIGQUERY_TABLE --outputRedisHost=$REDIS_HOST_UAT --outputRedisPort=$REDIS_PORT_UAT --outputRedisAuth=$(echo $REDIS_PASSWORD_UAT | base64 --decode -i) --useSslForRedis=true --keyColumn=$BIGQUERY_KEY_COLUMN --singleOutputValue=true --tempLocation=$NONPROD_LOG_LOCATION --gcpTempLocation=$NONPROD_LOG_LOCATION
+
+run_export_prod: &run_export_prod
+  run:
+    name: Run export for PROD
+    command: |
+      HOME_DIR=`cd ~; pwd`
+      sudo /opt/google-cloud-sdk/bin/gcloud --quiet components update --version="197.0.0"
+      echo $PROD_GCLOUD_ACCOUNT_AUTH | base64 --decode -i > $HOME_DIR/account-auth.json
+      sudo /opt/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file $HOME_DIR/account-auth.json
+      mvn clean package
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME_DIR/account-auth.json"
+      echo "Running the export..."
+      java -cp $(pwd)/target/bigquery-to-datastore-bundled-0.5.1.jar   com.github.yuiskw.beam.BigQuery2Redis --project=$PROD_PROJECT_ID --inputBigQueryDataset=$BIGQUERY_DATASET --inputBigQueryTable=$BIGQUERY_TABLE --outputRedisHost=$REDIS_HOST_PROD --outputRedisPort=$REDIS_PORT_PROD --outputRedisAuth=$(echo $REDIS_PASSWORD_PROD | base64 --decode -i) --useSslForRedis=true --keyColumn=$BIGQUERY_KEY_COLUMN --singleOutputValue=true --tempLocation=$PROD_LOG_LOCATION --gcpTempLocation=$PROD_LOG_LOCATION
+
 
 # ---------------------------------------------------------------------------
 # JOB DEFINITIONS
@@ -62,6 +75,13 @@ jobs:
       - *load_workspace
       - *run_export_uat
 
+  run-export-prod:
+    machine: true
+    environment:
+      PROD_CLOUDSDK_COMPUTE_ZONE: europe-west1
+    steps:
+    - *load_workspace
+    - *run_export_prod
 
 # ---------------------------------------------------------------------------
 # WORKFLOWS
@@ -75,3 +95,9 @@ workflows:
       - run-export-uat:
           requires:
             - setup
+      - run-export-prod:
+          filters:
+            branches:
+              only: master
+          requires:
+             - run-export-uat
