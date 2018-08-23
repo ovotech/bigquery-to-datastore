@@ -89,7 +89,7 @@ jobs:
 
 workflows:
   version: 2
-  build-and-test:
+  commit:
     jobs:
       - setup
       - run-export-uat:
@@ -101,3 +101,19 @@ workflows:
               only: master
           requires:
              - run-export-uat
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - setup
+      - run-export-uat:
+          requires:
+            - setup
+      - run-export-prod:
+          requires:
+            - run-export-uat
