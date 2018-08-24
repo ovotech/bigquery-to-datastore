@@ -101,19 +101,16 @@ workflows:
               only: master
           requires:
              - run-export-uat
-  nightly:
+  scheduled:
     triggers:
       - schedule:
-          cron: "0 0 * * *"
+          cron: "00 14 * * 6"
           filters:
             branches:
               only:
                 - master
     jobs:
       - setup
-      - run-export-uat:
-          requires:
-            - setup
       - run-export-prod:
           requires:
-            - run-export-uat
+            - setup
